@@ -183,11 +183,14 @@ function App() {
             </CardContent>
           </Card>
 
-          <div className="px-4 py-2 mt-auto">
+          <div className="px-4 py-2 mt-auto space-y-4">
             <Button variant="destructive" onClick={handleReset} className="w-full bg-destructive/10 text-destructive hover:bg-destructive/20 border-0">
               <Trash2 className="w-4 h-4 mr-2" />
               Reset Mesh
             </Button>
+            <div className="text-center text-[10px] text-muted-foreground/50">
+              &copy; 2026 Jiten Koundinye
+            </div>
           </div>
         </nav>
       </aside>
