@@ -110,11 +110,18 @@ function App() {
             <CardContent className="p-4 pt-0 space-y-3">
               <Select 
                 value={senderVpa} 
-                onChange={setSenderVpa}
+                onChange={(val) => {
+                  setSenderVpa(val);
+                  if (val === receiverVpa) {
+                    const all = ["jiten@demo", "janhavi@demo", "suhani@demo", "apeksha@demo"];
+                    setReceiverVpa(all.find(v => v !== val) || "");
+                  }
+                }}
                 options={[
                   { value: "jiten@demo", label: "jiten@demo" },
                   { value: "janhavi@demo", label: "janhavi@demo" },
-                  { value: "suhani@demo", label: "suhani@demo" }
+                  { value: "suhani@demo", label: "suhani@demo" },
+                  { value: "apeksha@demo", label: "apeksha@demo" }
                 ]}
               />
               <div className="text-center text-muted-foreground text-xs">to</div>
@@ -122,11 +129,11 @@ function App() {
                 value={receiverVpa} 
                 onChange={setReceiverVpa}
                 options={[
+                  { value: "jiten@demo", label: "jiten@demo" },
                   { value: "janhavi@demo", label: "janhavi@demo" },
                   { value: "suhani@demo", label: "suhani@demo" },
-                  { value: "jiten@demo", label: "jiten@demo" },
                   { value: "apeksha@demo", label: "apeksha@demo" }
-                ]}
+                ].filter(opt => opt.value !== senderVpa)}
               />
               <div className="flex gap-2">
                 <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="₹ Amount" className="flex-1" />
