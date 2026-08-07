@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "render-build": "npm install && cd ../frontend && npm install && npm run build && rm -rf ../backend/public && cp -r dist ../backend/public",
+    "start": "node src/server.js"
   },
   "keywords": [],
   "author": "",
