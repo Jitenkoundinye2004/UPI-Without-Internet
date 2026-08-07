@@ -198,9 +198,13 @@ function App() {
       {/* Main Content */}
       <main className="flex-1 lg:pl-64 overflow-hidden flex flex-col h-screen">
         <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md flex items-center px-6 justify-between sticky top-0 z-10">
-          <h2 className="font-medium text-lg flex items-center gap-2">
-            Dashboard
-          </h2>
+          <div className="flex flex-col">
+            <h2 className="font-medium text-lg flex items-center gap-2">
+              Dashboard
+              <Badge variant="secondary" className="font-normal text-[10px] bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20">Simulation Mode</Badge>
+            </h2>
+            <span className="text-[10px] text-muted-foreground">Web visualization of offline device-to-device routing</span>
+          </div>
           <div className="flex gap-4">
              <Badge variant="outline" className="gap-2">
                 <Database className="w-3 h-3 text-muted-foreground" />
