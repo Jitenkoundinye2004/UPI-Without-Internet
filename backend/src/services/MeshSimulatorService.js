@@ -35,7 +35,7 @@ class MeshSimulatorService {
     }
 
     seedDefaultDevices() {
-        this.devices.set('phone-alice', new VirtualDevice('phone-alice', false));
+        this.devices.set('phone-jiten', new VirtualDevice('phone-jiten', false));
         this.devices.set('phone-stranger1', new VirtualDevice('phone-stranger1', false));
         this.devices.set('phone-stranger2', new VirtualDevice('phone-stranger2', false));
         this.devices.set('phone-stranger3', new VirtualDevice('phone-stranger3', false));

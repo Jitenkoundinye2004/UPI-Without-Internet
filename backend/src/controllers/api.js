@@ -30,7 +30,7 @@ router.post('/demo/send', async (req, res) => {
             reqBody.ttl == null ? 5 : reqBody.ttl
         );
 
-        const startDevice = reqBody.startDevice == null ? "phone-alice" : reqBody.startDevice;
+        const startDevice = reqBody.startDevice == null ? "phone-jiten" : reqBody.startDevice;
         mesh.inject(startDevice, packet);
 
         res.json({

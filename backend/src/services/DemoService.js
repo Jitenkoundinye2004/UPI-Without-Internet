@@ -10,10 +10,10 @@ class DemoService {
         const count = await Account.count();
         if (count === 0) {
             await Account.bulkCreate([
-                { vpa: 'alice@demo', holderName: 'Alice', balance: 5000.00 },
-                { vpa: 'bob@demo', holderName: 'Bob', balance: 1000.00 },
-                { vpa: 'carol@demo', holderName: 'Carol', balance: 2500.00 },
-                { vpa: 'dave@demo', holderName: 'Dave', balance: 500.00 }
+                { vpa: 'jiten@demo', holderName: 'Jiten', balance: 5000.00 },
+                { vpa: 'janhavi@demo', holderName: 'Janhavi', balance: 1000.00 },
+                { vpa: 'suhani@demo', holderName: 'Suhani', balance: 2500.00 },
+                { vpa: 'apeksha@demo', holderName: 'Apeksha', balance: 500.00 }
             ]);
             console.log("Seeded 4 demo accounts");
         }

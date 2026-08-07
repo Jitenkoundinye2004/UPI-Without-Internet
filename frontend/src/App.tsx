@@ -12,8 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 function App() {
   const { meshState, accounts, transactions, logs, addLog, refreshData } = useData()
   
-  const [senderVpa, setSenderVpa] = useState('alice@demo')
-  const [receiverVpa, setReceiverVpa] = useState('bob@demo')
+  const [senderVpa, setSenderVpa] = useState('jiten@demo')
+  const [receiverVpa, setReceiverVpa] = useState('janhavi@demo')
   const [amount, setAmount] = useState('500')
   const [pin, setPin] = useState('1234')
   const [isSending, setIsSending] = useState(false)
@@ -30,7 +30,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderVpa, receiverVpa, amount: parseFloat(amount), pin, ttl: 5, startDevice: 'phone-alice'
+          senderVpa, receiverVpa, amount: parseFloat(amount), pin, ttl: 5, startDevice: 'phone-jiten'
         })
       })
       const data = await res.json()
@@ -112,9 +112,9 @@ function App() {
                 value={senderVpa} 
                 onChange={setSenderVpa}
                 options={[
-                  { value: "alice@demo", label: "alice@demo" },
-                  { value: "bob@demo", label: "bob@demo" },
-                  { value: "carol@demo", label: "carol@demo" }
+                  { value: "jiten@demo", label: "jiten@demo" },
+                  { value: "janhavi@demo", label: "janhavi@demo" },
+                  { value: "suhani@demo", label: "suhani@demo" }
                 ]}
               />
               <div className="text-center text-muted-foreground text-xs">to</div>
@@ -122,10 +122,10 @@ function App() {
                 value={receiverVpa} 
                 onChange={setReceiverVpa}
                 options={[
-                  { value: "bob@demo", label: "bob@demo" },
-                  { value: "carol@demo", label: "carol@demo" },
-                  { value: "alice@demo", label: "alice@demo" },
-                  { value: "dave@demo", label: "dave@demo" }
+                  { value: "janhavi@demo", label: "janhavi@demo" },
+                  { value: "suhani@demo", label: "suhani@demo" },
+                  { value: "jiten@demo", label: "jiten@demo" },
+                  { value: "apeksha@demo", label: "apeksha@demo" }
                 ]}
               />
               <div className="flex gap-2">
