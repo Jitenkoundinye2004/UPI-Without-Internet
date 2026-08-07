@@ -21,10 +21,12 @@ function App() {
   const [isFlushing, setIsFlushing] = useState(false)
   const [showPin, setShowPin] = useState(false)
 
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
   const handleSendPacket = async () => {
     setIsSending(true)
     try {
-      const res = await fetch('/api/demo/send', {
+      const res = await fetch(`${API_BASE_URL}/api/demo/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -44,7 +46,7 @@ function App() {
   const handleGossip = async () => {
     setIsGossiping(true)
     try {
-      const res = await fetch('/api/mesh/gossip', { method: 'POST' })
+      const res = await fetch(`${API_BASE_URL}/api/mesh/gossip`, { method: 'POST' })
       const data = await res.json()
       addLog(`🔄 Gossip: ${data.transfers} transfer(s) — ${JSON.stringify(data.deviceCounts)}`)
       await refreshData()
@@ -58,7 +60,7 @@ function App() {
   const handleFlush = async () => {
     setIsFlushing(true)
     try {
-      const res = await fetch('/api/mesh/flush', { method: 'POST' })
+      const res = await fetch(`${API_BASE_URL}/api/mesh/flush`, { method: 'POST' })
       const data = await res.json()
       addLog(`📡 ${data.uploadsAttempted} bridge upload(s):`)
       data.results.forEach((r: any) => {
@@ -74,7 +76,7 @@ function App() {
 
   const handleReset = async () => {
     try {
-      await fetch('/api/mesh/reset', { method: 'POST' })
+      await fetch(`${API_BASE_URL}/api/mesh/reset`, { method: 'POST' })
       addLog('🗑 Mesh + idempotency cache cleared')
       await refreshData()
     } catch (e) {

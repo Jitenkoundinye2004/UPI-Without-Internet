@@ -44,10 +44,11 @@ export function useData() {
 
   const refreshData = useCallback(async () => {
     try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || '';
       const [mRes, aRes, tRes] = await Promise.all([
-        fetch('/api/mesh/state'),
-        fetch('/api/accounts'),
-        fetch('/api/transactions')
+        fetch(`${API_BASE_URL}/api/mesh/state`),
+        fetch(`${API_BASE_URL}/api/accounts`),
+        fetch(`${API_BASE_URL}/api/transactions`)
       ]);
 
       if (mRes.ok) setMeshState(await mRes.json());
