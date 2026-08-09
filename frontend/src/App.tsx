@@ -93,8 +93,8 @@ function App() {
             <Activity size={24} />
           </div>
           <div>
-            <h1 className="font-semibold text-lg leading-tight">Offline Mesh</h1>
-            <p className="text-xs text-muted-foreground">Payment Protocol</p>
+            <h1 className="font-semibold text-lg leading-tight">UPI</h1>
+            <p className="text-xs text-muted-foreground">Without Internet</p>
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
