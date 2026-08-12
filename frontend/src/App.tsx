@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, Wifi, WifiOff, RefreshCcw, Send, Trash2, Smartphone, ShieldCheck, Database, CreditCard, Eye, EyeOff } from 'lucide-react'
+import { Activity, Wifi, WifiOff, RefreshCcw, Send, Trash2, Smartphone, ShieldCheck, Database, CreditCard, Eye, EyeOff, Menu, X } from 'lucide-react'
 import { useData } from './hooks/useData'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
 import { Button } from './components/ui/button'
@@ -20,6 +20,7 @@ function App() {
   const [isGossiping, setIsGossiping] = useState(false)
   const [isFlushing, setIsFlushing] = useState(false)
   const [showPin, setShowPin] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -85,17 +86,33 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground dark flex">
+    <div className="min-h-screen bg-background text-foreground dark flex relative overflow-hidden">
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-card/30 flex flex-col hidden lg:flex fixed inset-y-0">
-        <div className="p-6 flex items-center gap-3 border-b border-border">
-          <div className="bg-primary/20 p-2 rounded-lg text-primary">
-            <Activity size={24} />
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border bg-card flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-6 flex items-center justify-between border-b border-border">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/20 p-2 rounded-lg text-primary">
+              <Activity size={24} />
+            </div>
+            <div>
+              <h1 className="font-semibold text-lg leading-tight">UPI</h1>
+              <p className="text-xs text-muted-foreground">Without Internet</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-semibold text-lg leading-tight">UPI</h1>
-            <p className="text-xs text-muted-foreground">Without Internet</p>
-          </div>
+          <button 
+            className="p-1 rounded-md text-muted-foreground hover:bg-muted lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <div className="px-3 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">Controls</div>
@@ -196,19 +213,27 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:pl-64 overflow-hidden flex flex-col h-screen">
-        <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md flex items-center px-6 justify-between sticky top-0 z-10">
-          <div className="flex flex-col">
-            <h2 className="font-medium text-lg flex items-center gap-2">
-              Dashboard
-              <Badge variant="secondary" className="font-normal text-[10px] bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20">Simulation Mode</Badge>
-            </h2>
-            <span className="text-[10px] text-muted-foreground">Web visualization of offline device-to-device routing</span>
+      <main className="flex-1 lg:pl-64 overflow-hidden flex flex-col h-screen w-full">
+        <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md flex items-center px-4 lg:px-6 justify-between sticky top-0 z-10 w-full">
+          <div className="flex items-center gap-3">
+            <button 
+              className="p-2 -ml-2 rounded-md hover:bg-muted lg:hidden text-muted-foreground"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col">
+              <h2 className="font-medium text-base sm:text-lg flex items-center gap-2">
+                Dashboard
+                <Badge variant="secondary" className="font-normal text-[10px] bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20 hidden sm:flex">Simulation Mode</Badge>
+              </h2>
+              <span className="text-[10px] text-muted-foreground hidden sm:block">Web visualization of offline device-to-device routing</span>
+            </div>
           </div>
-          <div className="flex gap-4">
-             <Badge variant="outline" className="gap-2">
+          <div className="flex gap-2 sm:gap-4">
+             <Badge variant="outline" className="gap-1 sm:gap-2 text-xs">
                 <Database className="w-3 h-3 text-muted-foreground" />
-                Cache: {meshState?.idempotencyCacheSize || 0}
+                <span className="hidden sm:inline">Cache:</span> {meshState?.idempotencyCacheSize || 0}
              </Badge>
           </div>
         </header>
@@ -313,7 +338,7 @@ function App() {
                   Transaction Ledger
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
