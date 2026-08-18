@@ -1,429 +1,493 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Activity, Wifi, WifiOff, RefreshCcw, Send, Trash2, Smartphone, ShieldCheck, Database, CreditCard, Eye, EyeOff, Menu, X } from 'lucide-react'
-import { useData } from './hooks/useData'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
-import { Button } from './components/ui/button'
-import { Input } from './components/ui/input'
-import { Select } from './components/ui/select'
-import { Badge } from './components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './components/ui/table'
+import { useState, useEffect } from 'react';
+import { Layout } from './components/Layout';
+import type { TabType } from './components/Layout';
+import { AuthScreen } from './components/AuthScreen';
+import { Scanner } from './components/Scanner';
+import { SendMoney } from './components/SendMoney';
+import { signTransaction } from './lib/crypto';
+import { useData } from './hooks/useData';
+import { CreditCard, Send, ArrowDownLeft, Activity, Wifi, WifiOff, Smartphone, QrCode, LogOut, Copy, Check, X } from 'lucide-react';
 
 function App() {
-  const { meshState, accounts, transactions, logs, addLog, refreshData } = useData()
+  const [activeTab, setActiveTab] = useState<TabType>('home');
+  const [token, setToken] = useState<string | null>(localStorage.getItem('meshpay_token'));
+  const [authUser, setAuthUser] = useState<any>(null);
   
-  const [senderVpa, setSenderVpa] = useState('jiten@demo')
-  const [receiverVpa, setReceiverVpa] = useState('janhavi@demo')
-  const [amount, setAmount] = useState('500')
-  const [pin, setPin] = useState('1234')
-  const [isSending, setIsSending] = useState(false)
-  const [isGossiping, setIsGossiping] = useState(false)
-  const [isFlushing, setIsFlushing] = useState(false)
-  const [showPin, setShowPin] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  // Phase 4: Offline Queue State
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [isSyncEnabled, setIsSyncEnabled] = useState<boolean>(true);
+  const [offlineQueue, setOfflineQueue] = useState<any[]>(() => {
+    const saved = localStorage.getItem('meshpay_offline_queue');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+  const { meshState, accounts, transactions } = useData();
 
-  const handleSendPacket = async () => {
-    setIsSending(true)
+  useEffect(() => {
+    // 1. Fetch user on mount
+    const savedUser = localStorage.getItem('meshpay_user');
+    if (savedUser) setAuthUser(JSON.parse(savedUser));
+
+    // 2. Setup Network Listeners for Auto-Sync
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // 3. Auto-Sync trigger when internet returns
+  useEffect(() => {
+    if (isOnline && isSyncEnabled && offlineQueue.length > 0) {
+      console.log("Internet restored! Syncing offline queue...");
+      syncOfflineQueue();
+    }
+  }, [isOnline, isSyncEnabled]);
+
+  const syncOfflineQueue = async () => {
+    const currentQueue = [...offlineQueue];
+    const failedQueue = [];
+
+    for (const packet of currentQueue) {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/transaction/offline`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(packet)
+        });
+        if (!res.ok) {
+          failedQueue.push(packet); // Keep if backend rejected due to server error
+        }
+      } catch (e) {
+        failedQueue.push(packet); // Keep if network dropped again
+      }
+    }
+
+    setOfflineQueue(failedQueue);
+    localStorage.setItem('meshpay_offline_queue', JSON.stringify(failedQueue));
+    
+    if (failedQueue.length === 0) {
+      alert("✅ All offline transactions have been successfully synced to the bank!");
+    }
+  };
+
+  const handleLogin = (newToken: string, user: any) => {
+    localStorage.setItem('meshpay_token', newToken);
+    localStorage.setItem('meshpay_user', JSON.stringify(user));
+    setToken(newToken);
+    setAuthUser(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('meshpay_token');
+    localStorage.removeItem('meshpay_user');
+    setToken(null);
+    setAuthUser(null);
+  };
+
+  const [copied, setCopied] = useState(false);
+  const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
+  const [addMoneyAmount, setAddMoneyAmount] = useState('500');
+  const [isAddingMoney, setIsAddingMoney] = useState(false);
+
+  const handleCopy = () => {
+    if (currentUser?.vpa) {
+      navigator.clipboard.writeText(currentUser.vpa);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const confirmAddMoney = async () => {
+    if (!currentUser || !addMoneyAmount || isNaN(Number(addMoneyAmount))) return;
+    setIsAddingMoney(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/demo/send`, {
+      const amount = Number(addMoneyAmount);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/account/add-money`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderVpa, receiverVpa, amount: parseFloat(amount), pin, ttl: 5, startDevice: 'phone-jiten'
-        })
-      })
-      const data = await res.json()
-      addLog(`📤 Packet ${data.packetId.substring(0,8)} encrypted & injected (TTL ${data.ttl})`)
-      await refreshData()
+        body: JSON.stringify({ vpa: currentUser.vpa, amount })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update local authUser state
+        const updatedUser = { ...currentUser, balance: data.balance };
+        setAuthUser(updatedUser);
+        localStorage.setItem('meshpay_user', JSON.stringify(updatedUser));
+        setShowAddMoneyModal(false);
+        // Optional: show a small toast, but the UI updating is usually enough
+      }
     } catch (e) {
-      addLog('❌ Failed to inject packet')
+      console.error(e);
+      alert("Failed to add money");
     } finally {
-      setIsSending(false)
+      setIsAddingMoney(false);
     }
+  };
+
+  const handleAddMoney = () => {
+    setAddMoneyAmount('500');
+    setShowAddMoneyModal(true);
+  };
+
+  // The currently logged in user
+  const currentUser = authUser || accounts.find(a => a.vpa === 'jiten@demo') || accounts[0];
+
+  if (!token) {
+    return <AuthScreen onLoginSuccess={handleLogin} />;
   }
 
-  const handleGossip = async () => {
-    setIsGossiping(true)
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/mesh/gossip`, { method: 'POST' })
-      const data = await res.json()
-      addLog(`🔄 Gossip: ${data.transfers} transfer(s) — ${JSON.stringify(data.deviceCounts)}`)
-      await refreshData()
-    } catch (e) {
-      addLog('❌ Gossip failed')
-    } finally {
-      setIsGossiping(false)
-    }
-  }
+  const renderHome = () => (
+      <div className="h-full flex flex-col p-4 animate-in fade-in duration-300">
+         {/* Top Navigation */}
+         <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-3">
+               <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold shadow-md">
+                  {currentUser?.holderName?.charAt(0).toUpperCase()}
+               </div>
+               <div>
+                  <h1 className="font-bold text-lg leading-tight flex items-center gap-2">
+                     Hello, {currentUser?.holderName} <span className="animate-wave inline-block origin-bottom-right">👋</span>
+                  </h1>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className="text-sm text-muted-foreground">{currentUser?.vpa || 'Loading...'}</p>
+                    <button onClick={handleCopy} className="text-muted-foreground/60 hover:text-foreground transition-colors p-1 bg-secondary rounded-md">
+                      {copied ? <Check size={12} className="text-emerald-500"/> : <Copy size={12} />}
+                    </button>
+                  </div>
+               </div>
+            </div>
+         </div>
 
-  const handleFlush = async () => {
-    setIsFlushing(true)
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/mesh/flush`, { method: 'POST' })
-      const data = await res.json()
-      addLog(`📡 ${data.uploadsAttempted} bridge upload(s):`)
-      data.results.forEach((r: any) => {
-        addLog(`   ${r.bridgeNode} packet ${r.packetId} → ${r.outcome}`)
-      })
-      await refreshData()
-    } catch (e) {
-      addLog('❌ Bridge flush failed')
-    } finally {
-      setIsFlushing(false)
-    }
-  }
+         {/* Hero Balance Card */}
+         <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 mb-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10" />
+            <CreditCard className="absolute -right-6 -bottom-6 w-48 h-48 text-white/10 rotate-[-15deg] pointer-events-none" />
+            
+            <p className="text-emerald-50 text-sm font-semibold tracking-wider uppercase mb-2 relative z-10">Offline Wallet Balance</p>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-8 relative z-10 font-mono">
+               ₹{currentUser ? parseFloat(currentUser.balance.toString()).toFixed(2) : '0.00'}
+            </h1>
+            <div className="flex gap-3 relative z-10">
+               <button onClick={handleAddMoney} className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors">
+                  <ArrowDownLeft size={18} /> Add Money
+               </button>
+               <button 
+                  onClick={() => setActiveTab('send')}
+                  className="bg-white text-emerald-900 hover:bg-white/90 px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg transition-colors"
+               >
+                  <Send size={18} /> Send Offline
+               </button>
+            </div>
+         </div>
 
-  const handleReset = async () => {
+        {/* Dashboard Grid */}
+        <div className="grid md:grid-cols-2 gap-6 pb-8">
+           {/* Recent Transactions List */}
+           <div className="bg-card border border-border p-5 rounded-2xl shadow-sm">
+              <div className="flex justify-between items-center mb-5">
+                 <h3 className="font-semibold text-lg tracking-tight">Recent Transactions</h3>
+                 <button onClick={() => setActiveTab('history')} className="text-primary text-sm font-medium hover:underline">View All</button>
+              </div>
+              <div className="space-y-3">
+                 {transactions.slice(0, 4).map(tx => {
+                    const isSender = tx.senderVpa === currentUser?.vpa;
+                    return (
+                       <div key={tx.id} className="flex justify-between items-center p-3 hover:bg-secondary/50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-border">
+                          <div className="flex items-center gap-4">
+                             <div className={`p-2.5 rounded-full ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                                {isSender ? <Send size={18} className="transform -rotate-45" /> : <ArrowDownLeft size={18} />}
+                             </div>
+                             <div>
+                                <p className="font-semibold text-sm">{isSender ? tx.receiverVpa : tx.senderVpa}</p>
+                                <p className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider mt-0.5">{tx.status}</p>
+                             </div>
+                          </div>
+                          <p className={`font-bold ${isSender ? '' : 'text-emerald-500'}`}>
+                             {isSender ? '-' : '+'}₹{tx.amount}
+                          </p>
+                       </div>
+                    )
+                 })}
+                 {transactions.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No recent transactions</p>}
+              </div>
+           </div>
+
+           {/* Mesh Network Nodes (Real MongoDB Users) */}
+           <div className="bg-card border border-border p-5 rounded-2xl shadow-sm flex flex-col">
+              <h3 className="font-semibold text-lg mb-5 tracking-tight">Active Mesh Nodes</h3>
+              <div className="flex-1 space-y-3">
+                 {accounts.filter(a => a.vpa !== currentUser?.vpa).slice(0, 4).map(account => (
+                    <div key={account.vpa} className="flex justify-between items-center p-3 bg-secondary/30 rounded-xl border border-border/50">
+                       <div className="flex items-center gap-3">
+                          <div className="bg-background p-2 rounded-lg border border-border">
+                            <Smartphone size={16} className="text-muted-foreground" />
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium block">{account.holderName}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{account.vpa}</span>
+                          </div>
+                       </div>
+                       <div className="flex items-center gap-2 text-xs">
+                          <span className="text-emerald-500 flex items-center bg-emerald-500/10 px-2 py-1 rounded-md font-medium border border-emerald-500/20">
+                            <Wifi size={12} className="mr-1.5"/> Node Active
+                          </span>
+                       </div>
+                    </div>
+                 ))}
+                 {accounts.length <= 1 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <WifiOff className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No other nodes registered in database</p>
+                    </div>
+                 )}
+              </div>
+           </div>
+        </div>
+      </div>
+    );
+
+  const handleOfflineSend = async (receiverVpa: string, amount: number, pin: string) => {
     try {
-      await fetch(`${API_BASE_URL}/api/mesh/reset`, { method: 'POST' })
-      addLog('🗑 Mesh + idempotency cache cleared')
-      await refreshData()
+      const privateKeyBase64 = localStorage.getItem(`meshpay_private_key_${currentUser.vpa}`);
+      
+      if (!privateKeyBase64) {
+        alert("CRITICAL SECURITY ERROR: Private Key not found on this device. Cannot sign transaction offline.");
+        return;
+      }
+
+      // 1. The pure data payload
+      const payload = {
+        senderVpa: currentUser.vpa,
+        receiverVpa,
+        amount,
+        timestamp: Date.now(),
+        nonce: crypto.randomUUID() // Prevent replay attacks
+      };
+
+      // 2. Mathematically Sign the data offline!
+      console.log("Signing offline payload...", payload);
+      const signature = await signTransaction(privateKeyBase64, payload);
+
+      const packet = {
+        payload,
+        signature,
+        pin 
+      };
+
+      // PHASE 4: PWA Offline Queue Logic
+      if (!isOnline) {
+        // Save to offline queue
+        const newQueue = [...offlineQueue, packet];
+        setOfflineQueue(newQueue);
+        localStorage.setItem('meshpay_offline_queue', JSON.stringify(newQueue));
+        
+        alert(`📴 OFFLINE MODE: Transaction cryptographically signed and saved. It will sync automatically when you reconnect to the internet.`);
+        setActiveTab('home');
+        return;
+      }
+
+      // If online, send immediately
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/transaction/offline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(packet)
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Success: ${data.message}`);
+        setActiveTab('home'); 
+      } else {
+        alert(`❌ Failed: ${data.error}`);
+      }
     } catch (e) {
-      addLog('❌ Reset failed')
+      console.error(e);
+      alert("System Error: Could not process the transaction");
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-background text-foreground dark flex relative overflow-hidden">
-      {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+    <Layout activeTab={activeTab} onTabChange={setActiveTab} isOnline={isOnline} offlineQueueCount={offlineQueue.length}>
+       {activeTab === 'home' && renderHome()}
+       {activeTab === 'send' && <SendMoney key="send" currentUser={currentUser} onSendOffline={handleOfflineSend} />}
+       {activeTab === 'scan' && <Scanner key="scan" currentUser={currentUser} onSendOffline={handleOfflineSend} defaultMode="scan" />}
+       {activeTab === 'history' && (
+         <div className="h-full flex flex-col p-4 max-w-2xl mx-auto animate-in fade-in duration-300 w-full">
+           <h2 className="text-2xl font-bold mb-6">Transaction Ledger</h2>
+           
+           {transactions.length === 0 ? (
+             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+               <Activity size={48} className="mb-4 opacity-20" />
+               <p>No transactions found on the mesh yet.</p>
+             </div>
+           ) : (
+             <div className="space-y-4 overflow-y-auto pb-20">
+               {transactions.map((tx: any) => {
+                 const isSender = tx.senderVpa === currentUser?.vpa;
+                 return (
+                   <div key={tx._id || tx.id} className="bg-card border border-border p-5 rounded-2xl flex items-center justify-between shadow-sm">
+                     <div className="flex items-center gap-4">
+                       <div className={`p-3 rounded-xl ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                         {isSender ? <ArrowDownLeft className="rotate-180" size={24} /> : <ArrowDownLeft size={24} />}
+                       </div>
+                       <div>
+                         <p className="font-bold text-lg">{isSender ? `To: ${tx.receiverVpa}` : `From: ${tx.senderVpa}`}</p>
+                         <p className="text-xs text-muted-foreground font-mono">{new Date(tx.createdAt || Date.now()).toLocaleString()}</p>
+                       </div>
+                     </div>
+                     <div className="text-right">
+                       <p className={`font-black text-xl ${isSender ? 'text-destructive' : 'text-primary'}`}>
+                         {isSender ? '-' : '+'}₹{tx.amount.toFixed(2)}
+                       </p>
+                       <p className="text-xs text-muted-foreground font-mono mt-1">ID: {tx.packetId.substring(0, 8)}</p>
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
+           )}
+         </div>
+       )}
+       {activeTab === 'profile' && (
+         <div className="h-full flex flex-col p-4 max-w-2xl mx-auto animate-in fade-in duration-300 w-full pb-24">
+           <h2 className="text-2xl font-bold mb-6">Your Profile</h2>
+           
+           {/* Digital Card */}
+           <div className="relative w-full h-48 bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-3xl p-6 text-white shadow-2xl overflow-hidden mb-8 transform hover:scale-[1.02] transition-transform">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+             <div className="flex justify-between items-start relative z-10">
+               <div>
+                 <p className="text-emerald-100/80 text-xs uppercase tracking-widest font-semibold mb-1">Total Balance</p>
+                 <h2 className="text-4xl font-black tracking-tight">₹{currentUser ? parseFloat(currentUser.balance.toString()).toFixed(2) : '0.00'}</h2>
+               </div>
+               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                 <Activity size={24} className="text-white" />
+               </div>
+             </div>
+             
+             <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end z-10">
+               <div>
+                 <p className="font-bold text-lg">{currentUser?.holderName}</p>
+                 <div className="flex items-center gap-2 mt-1">
+                   <p className="text-emerald-100/80 font-mono text-sm tracking-wide">{currentUser?.vpa}</p>
+                   <button onClick={handleCopy} className="text-emerald-100/60 hover:text-white transition-colors p-1 bg-black/10 rounded-md">
+                     {copied ? <Check size={14} className="text-emerald-300"/> : <Copy size={14} />}
+                   </button>
+                 </div>
+               </div>
+             </div>
+           </div>
 
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border bg-card flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 flex items-center justify-between border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/20 p-2 rounded-lg text-primary">
-              <Activity size={24} />
-            </div>
-            <div>
-              <h1 className="font-semibold text-lg leading-tight">UPI</h1>
-              <p className="text-xs text-muted-foreground">Without Internet</p>
-            </div>
-          </div>
-          <button 
-            className="p-1 rounded-md text-muted-foreground hover:bg-muted lg:hidden"
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <div className="px-3 py-2 text-sm font-medium text-muted-foreground uppercase tracking-wider">Controls</div>
-          
-          <Card className="bg-card/50 border-border/50 mb-4 shadow-none">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <span className="bg-primary/20 text-primary h-6 w-6 rounded-full flex items-center justify-center text-xs">1</span>
-                Compose
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-3">
-              <Select 
-                value={senderVpa} 
-                onChange={(val) => {
-                  setSenderVpa(val);
-                  if (val === receiverVpa) {
-                    const all = ["jiten@demo", "janhavi@demo", "suhani@demo", "apeksha@demo"];
-                    setReceiverVpa(all.find(v => v !== val) || "");
-                  }
-                }}
-                options={[
-                  { value: "jiten@demo", label: "jiten@demo" },
-                  { value: "janhavi@demo", label: "janhavi@demo" },
-                  { value: "suhani@demo", label: "suhani@demo" },
-                  { value: "apeksha@demo", label: "apeksha@demo" }
-                ]}
-              />
-              <div className="text-center text-muted-foreground text-xs">to</div>
-              <Select 
-                value={receiverVpa} 
-                onChange={setReceiverVpa}
-                options={[
-                  { value: "jiten@demo", label: "jiten@demo" },
-                  { value: "janhavi@demo", label: "janhavi@demo" },
-                  { value: "suhani@demo", label: "suhani@demo" },
-                  { value: "apeksha@demo", label: "apeksha@demo" }
-                ].filter(opt => opt.value !== senderVpa)}
-              />
-              <div className="flex gap-2">
-                <Input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="₹ Amount" className="flex-1" />
-                <div className="relative w-24">
-                  <Input type={showPin ? "text" : "password"} value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN" className="w-full pr-8" maxLength={4} />
-                  <button type="button" onClick={() => setShowPin(!showPin)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button onClick={handleSendPacket} disabled={isSending} className="w-full">
-                {isSending ? <RefreshCcw className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                Inject Packet
-              </Button>
-            </CardContent>
-          </Card>
+           {/* Security Settings Menu */}
+           <div className="space-y-4 mb-8">
+             <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest ml-2">Security & Settings</h3>
+             
+             <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+               
+               <div className="flex items-center justify-between p-4 border-b border-border hover:bg-secondary/50 cursor-pointer transition-colors">
+                 <div className="flex items-center gap-4">
+                   <div className="bg-emerald-500/10 p-3 rounded-xl text-emerald-500">
+                     <QrCode size={20} />
+                   </div>
+                   <div>
+                     <p className="font-bold">Offline Private Key</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">Stored securely in local vault</p>
+                   </div>
+                 </div>
+                 <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full">Secured</span>
+               </div>
 
-          <Card className="bg-card/50 border-border/50 mb-4 shadow-none">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <span className="bg-blue-500/20 text-blue-500 h-6 w-6 rounded-full flex items-center justify-center text-xs">2</span>
-                Gossip
-              </CardTitle>
-              <CardDescription className="text-xs">Packets hop device-to-device</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <Button variant="secondary" onClick={handleGossip} disabled={isGossiping} className="w-full bg-blue-500/10 text-blue-500 hover:bg-blue-500/20">
-                {isGossiping ? <RefreshCcw className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
-                Run Round
-              </Button>
-            </CardContent>
-          </Card>
+               <div 
+                 onClick={() => setIsSyncEnabled(!isSyncEnabled)}
+                 className="flex items-center justify-between p-4 border-b border-border hover:bg-secondary/50 cursor-pointer transition-colors"
+               >
+                 <div className="flex items-center gap-4">
+                   <div className={`${isSyncEnabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'} p-3 rounded-xl transition-colors`}>
+                     <Wifi size={20} />
+                   </div>
+                   <div>
+                     <p className="font-bold">Background Sync</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">Auto-upload when WiFi returns</p>
+                   </div>
+                 </div>
+                 <div className={`w-12 h-7 rounded-full relative transition-colors ${isSyncEnabled ? 'bg-primary' : 'bg-muted'}`}>
+                   <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${isSyncEnabled ? 'translate-x-6' : 'translate-x-1'}`}></div>
+                 </div>
+               </div>
 
-          <Card className="bg-card/50 border-border/50 mb-4 shadow-none">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <span className="bg-emerald-500/20 text-emerald-500 h-6 w-6 rounded-full flex items-center justify-center text-xs">3</span>
-                Bridge Upload
-              </CardTitle>
-              <CardDescription className="text-xs">Bridge node hits 4G</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <Button variant="outline" onClick={handleFlush} disabled={isFlushing} className="w-full border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10">
-                {isFlushing ? <RefreshCcw className="w-4 h-4 animate-spin mr-2" /> : <Wifi className="w-4 h-4 mr-2" />}
-                Flush Bridges
-              </Button>
-            </CardContent>
-          </Card>
+             </div>
+           </div>
 
-          <div className="px-4 py-2 mt-auto space-y-4">
-            <Button variant="destructive" onClick={handleReset} className="w-full bg-destructive/10 text-destructive hover:bg-destructive/20 border-0">
-              <Trash2 className="w-4 h-4 mr-2" />
-              Reset Mesh
-            </Button>
-            <div className="text-center text-[10px] text-muted-foreground/50">
-              &copy; 2026 Jiten Koundinye
-            </div>
-          </div>
-        </nav>
-      </aside>
+           <button 
+             onClick={handleLogout}
+             className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:shadow-sm rounded-2xl font-bold transition-all mt-auto"
+           >
+             <LogOut size={20} />
+             Secure Logout
+           </button>
+         </div>
+       )}
 
-      {/* Main Content */}
-      <main className="flex-1 lg:pl-64 overflow-hidden flex flex-col h-screen w-full">
-        <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md flex items-center px-4 lg:px-6 justify-between sticky top-0 z-10 w-full">
-          <div className="flex items-center gap-3">
-            <button 
-              className="p-2 -ml-2 rounded-md hover:bg-muted lg:hidden text-muted-foreground"
-              onClick={() => setIsMobileMenuOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <div className="flex flex-col">
-              <h2 className="font-medium text-base sm:text-lg flex items-center gap-2">
-                Dashboard
-                <Badge variant="secondary" className="font-normal text-[10px] bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20 hidden sm:flex">Simulation Mode</Badge>
-              </h2>
-              <span className="text-[10px] text-muted-foreground hidden sm:block">Web visualization of offline device-to-device routing</span>
-            </div>
-          </div>
-          <div className="flex gap-2 sm:gap-4">
-             <Badge variant="outline" className="gap-1 sm:gap-2 text-xs">
-                <Database className="w-3 h-3 text-muted-foreground" />
-                <span className="hidden sm:inline">Cache:</span> {meshState?.idempotencyCacheSize || 0}
-             </Badge>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            
-            {/* Devices View */}
-            <Card className="xl:col-span-2 overflow-hidden flex flex-col">
-              <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Smartphone className="w-5 h-5 text-primary" />
-                  Mesh Network
-                </CardTitle>
-                <CardDescription>Visualizing active devices and packets</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 flex-1 bg-gradient-to-br from-background to-muted/20">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <AnimatePresence>
-                    {meshState?.devices.map(device => (
-                      <motion.div
-                        key={device.deviceId}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className={`p-4 rounded-xl border ${device.hasInternet ? 'border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-border bg-card'}`}
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <h4 className="font-medium flex items-center gap-2">
-                            {device.deviceId}
-                          </h4>
-                          <Badge variant={device.hasInternet ? "success" : "secondary"} className="text-[10px] uppercase tracking-wider">
-                            {device.hasInternet ? <><Wifi className="w-3 h-3 mr-1" /> Bridge</> : <><WifiOff className="w-3 h-3 mr-1" /> Offline</>}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground mb-2">
-                          Packets ({device.packetCount})
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {device.packetIds.map(id => (
-                            <motion.span 
-                              key={id}
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-[10px] font-mono border border-border"
-                            >
-                              {id.substring(0,6)}
-                            </motion.span>
-                          ))}
-                          {device.packetIds.length === 0 && (
-                            <span className="text-xs italic text-muted-foreground">Empty</span>
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Accounts */}
-            <Card className="flex flex-col">
-               <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <CreditCard className="w-5 h-5 text-blue-500" />
-                  Accounts
-                </CardTitle>
-                <CardDescription>Live balances in backend</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>VPA</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {accounts.map(acc => (
-                      <TableRow key={acc.vpa}>
-                        <TableCell>
-                          <div className="font-medium text-sm">{acc.holderName}</div>
-                          <div className="text-xs text-muted-foreground">{acc.vpa}</div>
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-emerald-500">
-                          ₹{parseFloat(acc.balance.toString()).toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Ledger */}
-            <Card className="xl:col-span-2">
-               <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <ShieldCheck className="w-5 h-5 text-amber-500" />
-                  Transaction Ledger
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Route</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Bridge</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transactions.map(tx => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {String(tx.id).substring(0,8)}...
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-xs">{tx.senderVpa.split('@')[0]} → {tx.receiverVpa.split('@')[0]}</div>
-                        </TableCell>
-                        <TableCell className="font-mono">₹{tx.amount}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              tx.status === 'SETTLED' ? 'success' : 
-                              tx.status === 'REJECTED' || tx.status === 'INVALID' ? 'destructive' : 
-                              'warning'
-                            }
-                            className="text-[10px]"
-                          >
-                            {tx.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{tx.bridgeNodeId || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                    {transactions.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">
-                          No transactions yet
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            {/* Logs */}
-            <Card className="flex flex-col h-[400px]">
-               <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Activity className="w-5 h-5 text-purple-500" />
-                  Activity Log
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 overflow-hidden bg-black/40">
-                <div className="h-full overflow-y-auto p-4 space-y-2 font-mono text-xs">
-                  <AnimatePresence initial={false}>
-                    {logs.map((log, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="text-muted-foreground break-all"
-                      >
-                        {log.startsWith('📤') || log.startsWith('🔄') || log.startsWith('📡') ? (
-                          <span className="text-foreground">{log}</span>
-                        ) : log.includes('❌') ? (
-                          <span className="text-destructive">{log}</span>
-                        ) : log.includes('✅') || log.includes('SETTLED') ? (
-                          <span className="text-emerald-500">{log}</span>
-                        ) : (
-                          log
-                        )}
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-    </div>
-  )
+       {/* Add Money Modal */}
+       {showAddMoneyModal && (
+         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
+           <div className="bg-card border border-border w-full max-w-sm rounded-3xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
+             <button 
+               onClick={() => setShowAddMoneyModal(false)}
+               className="absolute top-4 right-4 p-2 bg-secondary rounded-full text-muted-foreground hover:text-foreground transition-colors"
+             >
+               <X size={20} />
+             </button>
+             <div className="mb-6">
+               <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4">
+                 <ArrowDownLeft size={24} />
+               </div>
+               <h3 className="text-2xl font-bold">Add Money</h3>
+               <p className="text-muted-foreground text-sm">Deposit funds into your offline wallet instantly.</p>
+             </div>
+             
+             <div className="relative mb-6">
+               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-muted-foreground">₹</span>
+               <input
+                 type="number"
+                 value={addMoneyAmount}
+                 onChange={(e) => setAddMoneyAmount(e.target.value)}
+                 className="w-full bg-secondary/50 border border-border rounded-2xl py-4 pl-10 pr-4 text-3xl font-black focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                 placeholder="0.00"
+                 autoFocus
+               />
+             </div>
+             
+             <div className="flex gap-3 mb-6">
+               {[500, 1000, 5000].map(amt => (
+                 <button 
+                   key={amt}
+                   onClick={() => setAddMoneyAmount(amt.toString())}
+                   className="flex-1 py-2 rounded-xl bg-secondary hover:bg-secondary/80 font-semibold text-sm transition-colors border border-border"
+                 >
+                   +₹{amt}
+                 </button>
+               ))}
+             </div>
+             
+             <button 
+               onClick={confirmAddMoney}
+               disabled={isAddingMoney || !addMoneyAmount}
+               className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-black text-lg hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 flex items-center justify-center gap-2"
+             >
+               {isAddingMoney ? <Activity className="animate-spin" size={20}/> : 'Deposit Funds'}
+             </button>
+           </div>
+         </div>
+       )}
+    </Layout>
+  );
 }
 
-export default App
+export default App;

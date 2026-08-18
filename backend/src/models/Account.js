@@ -10,9 +10,18 @@ const Account = sequelize.define('Account', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  passwordHash: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  pinHash: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
   balance: {
     type: DataTypes.DECIMAL(19, 2),
-    allowNull: false
+    allowNull: false,
+    defaultValue: 0.00
   },
   version: {
     type: DataTypes.INTEGER,
@@ -20,8 +29,8 @@ const Account = sequelize.define('Account', {
   }
 }, {
   tableName: 'accounts',
-  timestamps: false, // Java model doesn't have created/updated at
-  version: true      // Optimistic locking like @Version in Java
+  timestamps: true, // Let's add timestamps for tracking when users registered
+  version: true      
 });
 
 module.exports = Account;

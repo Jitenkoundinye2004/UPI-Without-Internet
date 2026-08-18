@@ -1,9 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const sequelize = require('./config/database');
+const connectDB = require('./config/db'); // New MongoDB connection
 const serverKeyHolder = require('./crypto/ServerKeyHolder');
-const demo = require('./services/DemoService');
 const apiRoutes = require('./controllers/api');
 
 const app = express();
@@ -26,18 +25,14 @@ app.get('/', (req, res) => {
 // Initialize server
 async function start() {
     try {
-        // Initialize database (create tables)
-        await sequelize.sync({ force: true }); // drop and re-create like create-drop
-        console.log('Database synced');
-
-        // Seed initial accounts
-        await demo.seedAccounts();
+        // Initialize MongoDB connection
+        await connectDB();
 
         // Initialize RSA key pair
         serverKeyHolder.init();
 
         app.listen(PORT, () => {
-            console.log(`Node.js server listening on port ${PORT}`);
+            console.log(`🚀 Node.js server listening on port ${PORT}`);
         });
     } catch (e) {
         console.error('Failed to start server:', e);
@@ -45,3 +40,4 @@ async function start() {
 }
 
 start();
+

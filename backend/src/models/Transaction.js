@@ -1,59 +1,45 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Transaction = sequelize.define('Transaction', {
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true
-  },
-  packetHash: {
-    type: DataTypes.STRING(64),
-    allowNull: false,
-    unique: true // idempotency key
-  },
-  senderVpa: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  receiverVpa: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  amount: {
-    type: DataTypes.DECIMAL(19, 2),
-    allowNull: false
-  },
-  signedAt: {
-    type: DataTypes.DATE,
-    allowNull: false
-  },
-  settledAt: {
-    type: DataTypes.DATE,
-    allowNull: false
-  },
-  bridgeNodeId: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  hopCount: {
-    type: DataTypes.INTEGER,
-    allowNull: false
-  },
-  status: {
-    type: DataTypes.ENUM('SETTLED', 'REJECTED'),
-    allowNull: false
-  }
-}, {
-  tableName: 'transactions',
-  timestamps: false,
-  indexes: [
-    {
-      name: 'idx_packet_hash',
-      unique: true,
-      fields: ['packetHash']
+const transactionSchema = new mongoose.Schema({
+    packetId: {
+        type: String,
+        required: true,
+        unique: true // Prevents replay attacks automatically
+    },
+    senderVpa: {
+        type: String,
+        required: true,
+        index: true
+    },
+    receiverVpa: {
+        type: String,
+        required: true,
+        index: true
+    },
+    amount: {
+        type: Number,
+        required: true,
+        min: 1
+    },
+    status: {
+        type: String,
+        enum: ['SETTLED', 'REJECTED', 'INVALID'],
+        required: true
+    },
+    bridgeNodeId: {
+        type: String,
+        default: null
+    },
+    hopCount: {
+        type: Number,
+        default: 0
+    },
+    failureReason: {
+        type: String,
+        default: null
     }
-  ]
+}, {
+    timestamps: true
 });
 
-module.exports = Transaction;
+module.exports = mongoose.model('Transaction', transactionSchema);

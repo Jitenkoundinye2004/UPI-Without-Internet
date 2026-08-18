@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@yudiel/react-qr-scanner": "^2.6.0",
     "clsx": "^2.1.1",
     "framer-motion": "^13.0.0",
     "lucide-react": "^1.30.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.6.0"
