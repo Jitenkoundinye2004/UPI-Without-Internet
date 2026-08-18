@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, ArrowRight, Zap, CreditCard, Lock, User } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Zap, Lock, User } from 'lucide-react';
 import { generateKeyPair, exportPublicKey, exportPrivateKey } from '../lib/crypto';
 
 interface AuthScreenProps {
@@ -19,6 +19,26 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    // Strong Frontend Validations
+    if (!isLogin) {
+      if (formData.password.length < 8) {
+        setError('Password must be at least 8 characters long');
+        setIsLoading(false);
+        return;
+      }
+      if (!/^\d{4}$/.test(formData.pin)) {
+        setError('Offline transaction PIN must be exactly 4 digits');
+        setIsLoading(false);
+        return;
+      }
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please provide a valid email address');
+      setIsLoading(false);
+      return;
+    }
 
     let payload: any = { ...formData };
     

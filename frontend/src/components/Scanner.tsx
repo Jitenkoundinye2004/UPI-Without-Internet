@@ -105,9 +105,12 @@ export function Scanner({ currentUser, onSendOffline, defaultMode = 'receive' }:
                       <div className="w-full h-full border-2 border-primary border-dashed rounded-lg"></div>
                     </div>
                     <QrReader 
-                      onResult={(text) => handleScan(text)} 
-                      onError={(error) => console.log(error?.message)}
-                      options={{ delayBetweenScanAttempts: 500 }}
+                      onScan={(result: any) => {
+                        if (result && result.length > 0) {
+                          handleScan(result[0].rawValue);
+                        }
+                      }} 
+                      onError={(error: any) => console.log(error?.message)}
                     />
                   </>
                 ) : (

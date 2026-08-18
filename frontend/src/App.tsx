@@ -21,7 +21,7 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const { meshState, accounts, transactions } = useData();
+  const { accounts, transactions } = useData();
 
   useEffect(() => {
     // 1. Fetch user on mount
@@ -315,7 +315,7 @@ function App() {
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab} isOnline={isOnline} offlineQueueCount={offlineQueue.length}>
        {activeTab === 'home' && renderHome()}
-       {activeTab === 'send' && <SendMoney key="send" currentUser={currentUser} onSendOffline={handleOfflineSend} />}
+       {activeTab === 'send' && <SendMoney key="send" onSendOffline={handleOfflineSend} />}
        {activeTab === 'scan' && <Scanner key="scan" currentUser={currentUser} onSendOffline={handleOfflineSend} defaultMode="scan" />}
        {activeTab === 'history' && (
          <div className="h-full flex flex-col p-4 max-w-2xl mx-auto animate-in fade-in duration-300 w-full">

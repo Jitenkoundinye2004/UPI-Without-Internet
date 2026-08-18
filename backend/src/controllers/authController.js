@@ -20,6 +20,18 @@ const registerUser = async (req, res) => {
             return res.status(400).json({ error: 'Please add all required fields, including email and publicKey' });
         }
 
+        // Strong Validations
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: 'Please provide a valid email address' });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+        }
+        if (!/^\d{4}$/.test(pin.toString())) {
+            return res.status(400).json({ error: 'Offline PIN must be exactly 4 digits' });
+        }
+
         // Check if user exists (by VPA or Email)
         const vpaExists = await User.findOne({ vpa: vpa.toLowerCase() });
         const emailExists = await User.findOne({ email: email.toLowerCase() });

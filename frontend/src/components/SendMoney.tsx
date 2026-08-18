@@ -3,11 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, User, Zap } from 'lucide-react';
 
 interface SendMoneyProps {
-  currentUser: any;
   onSendOffline: (receiverVpa: string, amount: number, pin: string) => void;
 }
 
-export function SendMoney({ currentUser, onSendOffline }: SendMoneyProps) {
+export function SendMoney({ onSendOffline }: SendMoneyProps) {
   const [step, setStep] = useState<'vpa' | 'amount'>('vpa');
   const [receiverVpa, setReceiverVpa] = useState('');
   const [amount, setAmount] = useState('');
