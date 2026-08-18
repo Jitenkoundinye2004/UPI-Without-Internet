@@ -46,10 +46,16 @@ router.post('/transaction/offline', async (req, res) => {
         const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${sender.publicKey}\n-----END PUBLIC KEY-----`;
         
         const verify = crypto.createVerify('SHA256');
+        // Warning: JSON.stringify order matters. We assume the Express JSON parser preserves the order it received.
         verify.update(JSON.stringify(payload));
         verify.end();
 
-        const isValid = verify.verify(publicKeyPem, Buffer.from(signature, 'base64'));
+        // Web Crypto API uses raw P1363 signatures (r+s). Node.js defaults to DER. 
+        // We must explicitly tell Node.js to use ieee-p1363.
+        const isValid = verify.verify({
+            key: publicKeyPem,
+            dsaEncoding: 'ieee-p1363'
+        }, Buffer.from(signature, 'base64'));
 
         if (!isValid) {
             throw new Error("Cryptographic Signature Invalid! Transaction rejected.");
