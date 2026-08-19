@@ -69,6 +69,20 @@ export function Layout({ children, activeTab, onTabChange, isOnline = true, offl
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 relative overflow-y-auto pb-20 md:pb-0">
+        {/* MOBILE TOP HEADER */}
+        <header className="md:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary/20 p-1.5 rounded-lg text-primary">
+              <Zap size={20} />
+            </div>
+            <h1 className="text-lg font-bold tracking-tight">MeshPay</h1>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider uppercase">
+             <span className={`w-2 h-2 rounded-full animate-pulse ${isOnline ? 'bg-emerald-500' : 'bg-orange-500'}`}></span>
+             <span className={isOnline ? 'text-emerald-500' : 'text-orange-500'}>{isOnline ? 'Online' : 'Offline'}</span>
+          </div>
+        </header>
+
         <div className="absolute top-0 left-0 right-0 h-[300px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none -z-10" />
         <div className="p-4 md:p-8 max-w-5xl mx-auto h-full min-h-full">
           <AnimatePresence mode="wait">
