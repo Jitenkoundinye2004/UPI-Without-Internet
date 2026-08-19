@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Scanner as QrReader } from '@yudiel/react-qr-scanner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QrCode, ScanLine, ArrowLeft, Send } from 'lucide-react';
+import { QrCode, ScanLine, ArrowLeft, Send, Eye, EyeOff } from 'lucide-react';
 
 interface ScannerProps {
   currentUser: any;
@@ -15,6 +15,7 @@ export function Scanner({ currentUser, onSendOffline, defaultMode = 'receive' }:
   const [scannedVpa, setScannedVpa] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [pin, setPin] = useState<string>('');
+  const [showPin, setShowPin] = useState<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -176,15 +177,24 @@ export function Scanner({ currentUser, onSendOffline, defaultMode = 'receive' }:
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground uppercase ml-1 font-bold">Offline PIN</label>
-                  <input 
-                    type="password" 
-                    required
-                    maxLength={4}
-                    placeholder="••••"
-                    className="w-full bg-background border border-border rounded-2xl py-4 px-4 mt-1 text-2xl tracking-[1em] text-center font-mono focus:ring-2 focus:ring-primary outline-none"
-                    value={pin}
-                    onChange={e => setPin(e.target.value)}
-                  />
+                  <div className="relative mt-1">
+                    <input 
+                      type={showPin ? "text" : "password"}
+                      required
+                      maxLength={4}
+                      placeholder="••••"
+                      className="w-full bg-background border border-border rounded-2xl py-4 pl-4 pr-12 text-2xl tracking-widest text-center font-mono focus:ring-2 focus:ring-primary outline-none"
+                      value={pin}
+                      onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
                 <button 
                   type="submit"

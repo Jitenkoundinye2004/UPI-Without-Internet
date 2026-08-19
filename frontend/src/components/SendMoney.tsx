@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Send, User, Zap } from 'lucide-react';
+import { ArrowLeft, Send, User, Zap, Eye, EyeOff } from 'lucide-react';
 
 interface SendMoneyProps {
   isOnline?: boolean;
@@ -12,6 +12,7 @@ export function SendMoney({ isOnline, onSendOffline }: SendMoneyProps) {
   const [receiverVpa, setReceiverVpa] = useState('');
   const [amount, setAmount] = useState('');
   const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleVpaSubmit = (e: React.FormEvent) => {
@@ -127,15 +128,24 @@ export function SendMoney({ isOnline, onSendOffline }: SendMoneyProps) {
 
               <div>
                 <label className="text-xs text-muted-foreground uppercase ml-1 font-bold tracking-wider">Offline PIN</label>
-                <input 
-                  type="password" 
-                  required
-                  maxLength={4}
-                  placeholder="••••"
-                  className="w-full bg-secondary/30 border border-border rounded-2xl py-4 px-4 mt-1 text-2xl tracking-[1.5em] text-center font-mono focus:ring-2 focus:ring-primary outline-none transition-all"
-                  value={pin}
-                  onChange={e => setPin(e.target.value)}
-                />
+                <div className="relative mt-1">
+                  <input 
+                    type={showPin ? "text" : "password"}
+                    required
+                    maxLength={4}
+                    placeholder="••••"
+                    className="w-full bg-secondary/30 border border-border rounded-2xl py-4 pl-4 pr-12 text-2xl tracking-widest text-center font-mono focus:ring-2 focus:ring-primary outline-none transition-all"
+                    value={pin}
+                    onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
                 <p className="text-[10px] text-center text-muted-foreground mt-2">Required to cryptographically sign the transaction.</p>
               </div>
 

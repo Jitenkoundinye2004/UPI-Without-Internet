@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, ArrowRight, Zap, Lock, User } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Zap, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { generateKeyPair, exportPublicKey, exportPrivateKey } from '../lib/crypto';
 
 interface AuthScreenProps {
@@ -12,6 +12,9 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   const [formData, setFormData] = useState({ email: '', holderName: '', password: '', pin: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -190,13 +193,20 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-secondary/50 border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                  className="w-full bg-secondary/50 border border-border rounded-xl py-3 pl-10 pr-10 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
                   value={formData.password}
                   onChange={e => setFormData({...formData, password: e.target.value})}
                 />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
             </div>
 
@@ -212,14 +222,21 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
                   <div className="relative">
                     <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <input 
-                      type="password" 
+                      type={showPin ? "text" : "password"}
                       required={!isLogin}
                       maxLength={4}
                       placeholder="4-Digit PIN"
-                      className="w-full bg-secondary/50 border border-border rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none tracking-[0.5em] font-mono text-lg"
+                      className="w-full bg-secondary/50 border border-border rounded-xl py-3 pl-10 pr-10 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none tracking-widest font-mono text-lg"
                       value={formData.pin}
-                      onChange={e => setFormData({...formData, pin: e.target.value})}
+                      onChange={e => setFormData({...formData, pin: e.target.value.replace(/\D/g, '')})}
                     />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                   <p className="text-[10px] text-muted-foreground ml-1 mt-1">This PIN is used to sign offline transactions.</p>
                 </motion.div>
