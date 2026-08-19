@@ -16,19 +16,25 @@ export function Scanner({ currentUser, onSendOffline, defaultMode = 'receive' }:
   const [amount, setAmount] = useState<string>('');
   const [pin, setPin] = useState<string>('');
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const handleScan = (text: string) => {
     if (text) {
       setScannedVpa(text);
-      setMode('pay_form');
       setIsCameraActive(false);
+      setMode('pay_form');
     }
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !pin) return;
-    onSendOffline(scannedVpa, parseFloat(amount), pin);
+    if (!amount || !pin || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onSendOffline(scannedVpa, parseFloat(amount), pin);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -182,7 +188,8 @@ export function Scanner({ currentUser, onSendOffline, defaultMode = 'receive' }:
                 </div>
                 <button 
                   type="submit"
-                  className="w-full bg-primary text-primary-foreground font-bold rounded-2xl py-4 mt-4 flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg"
+                  disabled={isSubmitting}
+                  className="w-full bg-primary text-primary-foreground font-bold rounded-2xl py-4 mt-4 flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg disabled:opacity-50"
                 >
                   <Send size={20} />
                   Confirm Offline Transfer

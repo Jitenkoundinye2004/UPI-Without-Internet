@@ -32,7 +32,17 @@ router.post('/transaction/offline', async (req, res) => {
         const { payload, signature, pin } = req.body;
         const { senderVpa, receiverVpa, amount, nonce } = payload;
 
-        if (amount <= 0) throw new Error("Amount must be greater than 0");
+        if (amount <= 0 || amount > 50000) throw new Error("Transaction amount must be between ₹1 and ₹50,000.");
+
+        // --- IDEMPOTENCY CHECK ---
+        // If this nonce (packetId) has already been processed (e.g. background sync retries),
+        // we safely ignore it and return success to the client without deducting funds twice.
+        const existingTx = await Transaction.findOne({ packetId: nonce }).session(session);
+        if (existingTx) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.json({ message: "Transaction already processed successfully (Idempotency)", transaction: existingTx });
+        }
 
         // 1. Find Sender and Receiver
         const sender = await User.findOne({ vpa: senderVpa }).session(session);
@@ -102,6 +112,7 @@ router.post('/account/add-money', async (req, res) => {
     try {
         const { vpa, amount } = req.body;
         if (!vpa || !amount) return res.status(400).json({ error: "Missing data" });
+        if (amount <= 0 || amount > 100000) return res.status(400).json({ error: "Amount must be between ₹1 and ₹1,00,000 per transaction." });
 
         const user = await User.findOne({ vpa });
         if (!user) return res.status(404).json({ error: "User not found" });
@@ -215,7 +226,7 @@ router.post('/bridge/ingest', async (req, res) => {
 
 // ------------------------------------------------------------- accounts / transactions
 // Note: We use User.find() instead of Account.findAll() for Mongoose
-router.get('/accounts', async (req, res) => {
+router.get('/accounts', authMiddleware, async (req, res) => {
     try {
         // Exclude password and pin hashes from public API response
         const users = await User.find().select('-passwordHash -pinHash');
@@ -225,9 +236,15 @@ router.get('/accounts', async (req, res) => {
     }
 });
 
-router.get('/transactions', async (req, res) => {
+router.get('/transactions', authMiddleware, async (req, res) => {
     try {
-        const transactions = await Transaction.find()
+        // Only return transactions where the logged in user is either sender or receiver!
+        const transactions = await Transaction.find({
+            $or: [
+                { senderVpa: req.user.vpa },
+                { receiverVpa: req.user.vpa }
+            ]
+        })
             .sort({ createdAt: -1 })
             .limit(20);
         res.json(transactions);

@@ -3,14 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, User, Zap } from 'lucide-react';
 
 interface SendMoneyProps {
+  isOnline?: boolean;
   onSendOffline: (receiverVpa: string, amount: number, pin: string) => void;
 }
 
-export function SendMoney({ onSendOffline }: SendMoneyProps) {
+export function SendMoney({ isOnline, onSendOffline }: SendMoneyProps) {
   const [step, setStep] = useState<'vpa' | 'amount'>('vpa');
   const [receiverVpa, setReceiverVpa] = useState('');
   const [amount, setAmount] = useState('');
   const [pin, setPin] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleVpaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,16 +21,30 @@ export function SendMoney({ onSendOffline }: SendMoneyProps) {
     }
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !pin) return;
-    onSendOffline(receiverVpa, parseFloat(amount), pin);
+    if (!amount || !pin || isSubmitting) return;
+    
+    const numAmount = parseFloat(amount);
+    if (numAmount > 50000) {
+      alert("Maximum transfer limit is ₹50,000 per transaction.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSendOffline(receiverVpa, numAmount, pin);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="flex flex-col h-full max-w-md mx-auto p-4 animate-in fade-in zoom-in-95 duration-300 pt-12">
       <AnimatePresence mode="wait">
         
+        <h2 className="text-xl font-bold mb-6">{isOnline ? 'Send Online' : 'Send Offline'}</h2>
+
         {/* STEP 1: Enter VPA */}
         {step === 'vpa' && (
           <motion.div 
@@ -42,7 +58,7 @@ export function SendMoney({ onSendOffline }: SendMoneyProps) {
               <Zap size={48} />
             </div>
             <h2 className="text-3xl font-black mb-2 text-center">Send Money</h2>
-            <p className="text-muted-foreground text-center mb-8">Enter the recipient's UPI ID to instantly transfer funds offline.</p>
+            <p className="text-muted-foreground text-center mb-8">Enter the recipient's UPI ID to instantly transfer funds {isOnline ? 'online' : 'offline'}.</p>
 
             <div className="w-full bg-card border border-border p-6 rounded-3xl shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
@@ -125,7 +141,8 @@ export function SendMoney({ onSendOffline }: SendMoneyProps) {
 
               <button 
                 type="submit"
-                className="w-full bg-primary text-primary-foreground font-black text-lg rounded-2xl py-5 mt-4 flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-[0_0_25px_rgba(16,185,129,0.4)]"
+                disabled={isSubmitting}
+                className="w-full bg-primary text-primary-foreground font-black text-lg rounded-2xl py-5 mt-4 flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-[0_0_25px_rgba(16,185,129,0.4)] disabled:opacity-50"
               >
                 <Send size={24} />
                 Confirm Transfer

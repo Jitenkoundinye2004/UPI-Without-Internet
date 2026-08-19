@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import type { TabType } from './components/Layout';
 import { AuthScreen } from './components/AuthScreen';
@@ -6,12 +6,20 @@ import { Scanner } from './components/Scanner';
 import { SendMoney } from './components/SendMoney';
 import { signTransaction } from './lib/crypto';
 import { useData } from './hooks/useData';
-import { CreditCard, Send, ArrowDownLeft, Activity, Wifi, WifiOff, Smartphone, QrCode, LogOut, Copy, Check, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CreditCard, Send, ArrowDownLeft, Activity, Wifi, WifiOff, Smartphone, QrCode, LogOut, Copy, Check, X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [token, setToken] = useState<string | null>(localStorage.getItem('meshpay_token'));
   const [authUser, setAuthUser] = useState<any>(null);
+  
+  // Custom Toast State
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
   
   // Phase 4: Offline Queue State
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -21,7 +29,7 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  const { accounts, transactions } = useData();
+  const { accounts, transactions } = useData(token);
 
   useEffect(() => {
     // 1. Fetch user on mount
@@ -70,10 +78,11 @@ function App() {
 
     setOfflineQueue(failedQueue);
     localStorage.setItem('meshpay_offline_queue', JSON.stringify(failedQueue));
-    
-    if (failedQueue.length === 0) {
-      alert("✅ All offline transactions have been successfully synced to the bank!");
-    }
+        if (failedQueue.length === 0) {
+          showToast("✅ All offline transactions have been successfully synced to the bank!", "success");
+        } else {
+          showToast("⚠️ Some offline transactions failed to sync. Check history.", "error");
+        };
   };
 
   const handleLogin = (newToken: string, user: any) => {
@@ -104,7 +113,13 @@ function App() {
   };
 
   const confirmAddMoney = async () => {
-    if (!currentUser || !addMoneyAmount || isNaN(Number(addMoneyAmount))) return;
+    if (!currentUser || !addMoneyAmount) return;
+    const amount = Number(addMoneyAmount);
+    if (amount <= 0 || amount > 100000) {
+      showToast("You can only add up to ₹1,00,000 at a time", "error");
+      return;
+    }
+    
     setIsAddingMoney(true);
     try {
       const amount = Number(addMoneyAmount);
@@ -124,7 +139,7 @@ function App() {
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to add money");
+      showToast("Failed to add money", "error");
     } finally {
       setIsAddingMoney(false);
     }
@@ -138,12 +153,23 @@ function App() {
   // The currently logged in user
   const currentUser = authUser || accounts.find(a => a.vpa === 'jiten@demo') || accounts[0];
 
+  const displayBalance = useMemo(() => {
+    try {
+      if (!currentUser || currentUser.balance === undefined || currentUser.balance === null) return '0.00';
+      const bal = Number(currentUser.balance);
+      if (isNaN(bal)) return '0.00';
+      return bal.toFixed(2);
+    } catch (e) {
+      return '0.00';
+    }
+  }, [currentUser]);
+
   if (!token) {
     return <AuthScreen onLoginSuccess={handleLogin} />;
   }
 
   const renderHome = () => (
-      <div className="h-full flex flex-col p-4 animate-in fade-in duration-300">
+      <div className="flex flex-col p-4 max-w-2xl mx-auto animate-in fade-in duration-300 w-full">
          {/* Top Navigation */}
          <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-3">
@@ -165,23 +191,23 @@ function App() {
          </div>
 
          {/* Hero Balance Card */}
-         <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 mb-8 relative overflow-hidden">
+         <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 mb-8 relative overflow-hidden shrink-0">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10" />
             <CreditCard className="absolute -right-6 -bottom-6 w-48 h-48 text-white/10 rotate-[-15deg] pointer-events-none" />
             
-            <p className="text-emerald-50 text-sm font-semibold tracking-wider uppercase mb-2 relative z-10">Offline Wallet Balance</p>
-            <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-8 relative z-10 font-mono">
-               ₹{currentUser ? parseFloat(currentUser.balance.toString()).toFixed(2) : '0.00'}
+            <p className="text-emerald-50 text-sm font-semibold tracking-wider uppercase mb-2">Offline Wallet Balance</p>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight mb-8 font-mono break-words">
+               ₹{displayBalance}
             </h1>
-            <div className="flex gap-3 relative z-10">
-               <button onClick={handleAddMoney} className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors">
-                  <ArrowDownLeft size={18} /> Add Money
+            <div className="flex flex-col sm:flex-row gap-3">
+               <button onClick={handleAddMoney} className="flex-1 justify-center bg-white/20 hover:bg-white/30 backdrop-blur-md px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-medium transition-colors">
+                  <ArrowDownLeft size={18} className="shrink-0" /> Add Money
                </button>
                <button 
                   onClick={() => setActiveTab('send')}
-                  className="bg-white text-emerald-900 hover:bg-white/90 px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg transition-colors"
+                  className="flex-1 justify-center bg-white text-emerald-900 hover:bg-white/90 px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg transition-colors"
                >
-                  <Send size={18} /> Send Offline
+                  <Send size={18} className="shrink-0" /> {isOnline ? 'Send Online' : 'Send Offline'}
                </button>
             </div>
          </div>
@@ -199,16 +225,16 @@ function App() {
                     const isSender = tx.senderVpa === currentUser?.vpa;
                     return (
                        <div key={tx.id} className="flex justify-between items-center p-3 hover:bg-secondary/50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-border">
-                          <div className="flex items-center gap-4">
-                             <div className={`p-2.5 rounded-full ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                          <div className="flex items-center gap-4 min-w-0">
+                             <div className={`p-2.5 rounded-full shrink-0 ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-500'}`}>
                                 {isSender ? <Send size={18} className="transform -rotate-45" /> : <ArrowDownLeft size={18} />}
                              </div>
-                             <div>
-                                <p className="font-semibold text-sm">{isSender ? tx.receiverVpa : tx.senderVpa}</p>
+                             <div className="min-w-0">
+                                <p className="font-semibold text-sm truncate">{isSender ? tx.receiverVpa : tx.senderVpa}</p>
                                 <p className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider mt-0.5">{tx.status}</p>
                              </div>
                           </div>
-                          <p className={`font-bold ${isSender ? '' : 'text-emerald-500'}`}>
+                          <p className={`font-bold shrink-0 ml-3 ${isSender ? '' : 'text-emerald-500'}`}>
                              {isSender ? '-' : '+'}₹{tx.amount}
                           </p>
                        </div>
@@ -257,7 +283,7 @@ function App() {
       const privateKeyBase64 = localStorage.getItem(`meshpay_private_key_${currentUser.vpa}`);
       
       if (!privateKeyBase64) {
-        alert("CRITICAL SECURITY ERROR: Private Key not found on this device. Cannot sign transaction offline.");
+        showToast("CRITICAL SECURITY ERROR: Private Key not found on this device. Cannot sign transaction offline.", "error");
         return;
       }
 
@@ -287,7 +313,7 @@ function App() {
         setOfflineQueue(newQueue);
         localStorage.setItem('meshpay_offline_queue', JSON.stringify(newQueue));
         
-        alert(`📴 OFFLINE MODE: Transaction cryptographically signed and saved. It will sync automatically when you reconnect to the internet.`);
+        showToast("📴 OFFLINE MODE: Transaction cryptographically signed and saved. It will sync automatically when you reconnect to the internet.", "info");
         setActiveTab('home');
         return;
       }
@@ -301,21 +327,29 @@ function App() {
       
       const data = await res.json();
       if (res.ok) {
-        alert(`✅ Success: ${data.message}`);
+        showToast(`✅ ${data.message}`, "success");
+        
+        // Update local UI state immediately to show the debited amount!
+        if (currentUser) {
+          const updatedUser = { ...currentUser, balance: currentUser.balance - amount };
+          setAuthUser(updatedUser);
+          localStorage.setItem('meshpay_user', JSON.stringify(updatedUser));
+        }
+        
         setActiveTab('home'); 
       } else {
-        alert(`❌ Failed: ${data.error}`);
+        showToast(`❌ Failed: ${data.error}`, "error");
       }
     } catch (e) {
       console.error(e);
-      alert("System Error: Could not process the transaction");
+      showToast("System Error: Could not process the transaction", "error");
     }
   };
 
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab} isOnline={isOnline} offlineQueueCount={offlineQueue.length}>
        {activeTab === 'home' && renderHome()}
-       {activeTab === 'send' && <SendMoney key="send" onSendOffline={handleOfflineSend} />}
+       {activeTab === 'send' && <SendMoney key="send" isOnline={isOnline} onSendOffline={handleOfflineSend} />}
        {activeTab === 'scan' && <Scanner key="scan" currentUser={currentUser} onSendOffline={handleOfflineSend} defaultMode="scan" />}
        {activeTab === 'history' && (
          <div className="h-full flex flex-col p-4 max-w-2xl mx-auto animate-in fade-in duration-300 w-full">
@@ -332,17 +366,17 @@ function App() {
                  const isSender = tx.senderVpa === currentUser?.vpa;
                  return (
                    <div key={tx._id || tx.id} className="bg-card border border-border p-5 rounded-2xl flex items-center justify-between shadow-sm">
-                     <div className="flex items-center gap-4">
-                       <div className={`p-3 rounded-xl ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                     <div className="flex items-center gap-4 min-w-0">
+                       <div className={`p-3 rounded-xl shrink-0 ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
                          {isSender ? <ArrowDownLeft className="rotate-180" size={24} /> : <ArrowDownLeft size={24} />}
                        </div>
-                       <div>
-                         <p className="font-bold text-lg">{isSender ? `To: ${tx.receiverVpa}` : `From: ${tx.senderVpa}`}</p>
-                         <p className="text-xs text-muted-foreground font-mono">{new Date(tx.createdAt || Date.now()).toLocaleString()}</p>
+                       <div className="min-w-0">
+                         <p className="font-bold text-lg truncate">{isSender ? `To: ${tx.receiverVpa}` : `From: ${tx.senderVpa}`}</p>
+                         <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">{new Date(tx.createdAt || Date.now()).toLocaleString()}</p>
                        </div>
                      </div>
-                     <div className="text-right">
-                       <p className={`font-black text-xl ${isSender ? 'text-destructive' : 'text-primary'}`}>
+                     <div className="text-right shrink-0 ml-4 max-w-[100px] sm:max-w-none">
+                       <p className={`font-black text-xl truncate ${isSender ? 'text-destructive' : 'text-primary'}`}>
                          {isSender ? '-' : '+'}₹{tx.amount.toFixed(2)}
                        </p>
                        <p className="text-xs text-muted-foreground font-mono mt-1">ID: {tx.packetId.substring(0, 8)}</p>
@@ -364,7 +398,7 @@ function App() {
              <div className="flex justify-between items-start relative z-10">
                <div>
                  <p className="text-emerald-100/80 text-xs uppercase tracking-widest font-semibold mb-1">Total Balance</p>
-                 <h2 className="text-4xl font-black tracking-tight">₹{currentUser ? parseFloat(currentUser.balance.toString()).toFixed(2) : '0.00'}</h2>
+                 <h2 className="text-4xl font-black tracking-tight truncate">₹{displayBalance}</h2>
                </div>
                <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
                  <Activity size={24} className="text-white" />
@@ -486,6 +520,34 @@ function App() {
            </div>
          </div>
        )}
+
+       {/* Toast Notification System */}
+       <AnimatePresence>
+         {toast && (
+           <motion.div
+             initial={{ opacity: 0, y: -50, scale: 0.9 }}
+             animate={{ opacity: 1, y: 0, scale: 1 }}
+             exit={{ opacity: 0, y: -20, scale: 0.9 }}
+             className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] max-w-sm w-[90%] mx-auto"
+           >
+             <div className={`p-4 rounded-2xl shadow-2xl border flex items-start gap-3 backdrop-blur-xl ${
+               toast.type === 'success' ? 'bg-emerald-500/90 border-emerald-500/50 text-white' :
+               toast.type === 'error' ? 'bg-destructive/90 border-destructive/50 text-white' :
+               'bg-primary/90 border-primary/50 text-white'
+             }`}>
+               <div className="mt-0.5">
+                 {toast.type === 'success' ? <CheckCircle2 size={20} /> :
+                  toast.type === 'error' ? <AlertCircle size={20} /> :
+                  <Info size={20} />}
+               </div>
+               <p className="text-sm font-medium leading-tight">{toast.message}</p>
+               <button onClick={() => setToast(null)} className="ml-auto opacity-70 hover:opacity-100 transition-opacity">
+                 <X size={16} />
+               </button>
+             </div>
+           </motion.div>
+         )}
+       </AnimatePresence>
     </Layout>
   );
 }

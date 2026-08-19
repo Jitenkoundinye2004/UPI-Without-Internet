@@ -29,7 +29,7 @@ export interface MeshState {
   idempotencyCacheSize: number;
 }
 
-export function useData() {
+export function useData(token?: string | null) {
   const [meshState, setMeshState] = useState<MeshState | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -43,12 +43,15 @@ export function useData() {
   }, []);
 
   const refreshData = useCallback(async () => {
+    if (!token) return;
     try {
+      const headers = { 'Authorization': `Bearer ${token}` };
       const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+      
       const [mRes, aRes, tRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/mesh/state`),
-        fetch(`${API_BASE_URL}/api/accounts`),
-        fetch(`${API_BASE_URL}/api/transactions`)
+        fetch(`${API_BASE_URL}/api/mesh/state`), // still public for visualizer
+        fetch(`${API_BASE_URL}/api/accounts`, { headers }), // now protected
+        fetch(`${API_BASE_URL}/api/transactions`, { headers }) // now protected and filtered
       ]);
 
       if (mRes.ok) setMeshState(await mRes.json());
@@ -57,7 +60,7 @@ export function useData() {
     } catch (e) {
       console.error("Failed to fetch data", e);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     refreshData();
