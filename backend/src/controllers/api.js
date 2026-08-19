@@ -14,13 +14,18 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 
 // Controllers
-const { registerUser, loginUser, getMe } = require('./authController');
+const { sendRegisterOtp, registerUser, loginUser, getMe, forgotPassword, resetPassword, forgotPin, resetPin } = require('./authController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // ------------------------------------------------------------------ Auth
+router.post('/auth/send-register-otp', sendRegisterOtp);
 router.post('/auth/register', registerUser);
 router.post('/auth/login', loginUser);
 router.get('/auth/me', authMiddleware, getMe);
+router.post('/auth/forgot-password', forgotPassword);
+router.post('/auth/reset-password', resetPassword);
+router.post('/auth/forgot-pin', forgotPin);
+router.post('/auth/reset-pin', resetPin);
 
 // ------------------------------------------------------------------ Offline Crypto Engine
 router.post('/transaction/offline', async (req, res) => {

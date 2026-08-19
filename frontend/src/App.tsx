@@ -7,7 +7,7 @@ import { SendMoney } from './components/SendMoney';
 import { signTransaction } from './lib/crypto';
 import { useData } from './hooks/useData';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Send, ArrowDownLeft, Activity, Wifi, WifiOff, Smartphone, QrCode, LogOut, Copy, Check, X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { CreditCard, Send, ArrowDownLeft, Activity, Wifi, WifiOff, Smartphone, QrCode, LogOut, Copy, Check, X, CheckCircle2, AlertCircle, Info, Lock, ArrowRight } from 'lucide-react';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
@@ -131,6 +131,56 @@ function App() {
     }
   };
 
+  const [showResetPinModal, setShowResetPinModal] = useState(false);
+  const [resetPinStep, setResetPinStep] = useState<'SEND_OTP' | 'VERIFY_OTP'>('SEND_OTP');
+  const [resetPinData, setResetPinData] = useState({ otp: '', newPin: '' });
+  const [isResettingPin, setIsResettingPin] = useState(false);
+
+  const initiatePinReset = async () => {
+    if (!currentUser?.email) return;
+    setIsResettingPin(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/auth/forgot-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email })
+      });
+      if (!res.ok) throw new Error('Failed to send OTP');
+      showToast('OTP sent to your email', 'success');
+      setResetPinStep('VERIFY_OTP');
+    } catch (e: any) {
+      showToast(e.message || 'Failed to send OTP', 'error');
+    } finally {
+      setIsResettingPin(false);
+    }
+  };
+
+  const confirmPinReset = async () => {
+    if (!currentUser?.email || !resetPinData.otp || !resetPinData.newPin) return;
+    if (!/^\d{4}$/.test(resetPinData.newPin)) {
+      showToast('New PIN must be exactly 4 digits', 'error');
+      return;
+    }
+    setIsResettingPin(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/auth/reset-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentUser.email, otp: resetPinData.otp, newPin: resetPinData.newPin })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset PIN');
+      showToast('UPI PIN reset successfully!', 'success');
+      setShowResetPinModal(false);
+      setResetPinData({ otp: '', newPin: '' });
+      setResetPinStep('SEND_OTP');
+    } catch (e: any) {
+      showToast(e.message || 'Failed to reset PIN', 'error');
+    } finally {
+      setIsResettingPin(false);
+    }
+  };
+
   const confirmAddMoney = async () => {
     if (!currentUser || !addMoneyAmount) return;
     const amount = Number(addMoneyAmount);
@@ -245,7 +295,7 @@ function App() {
                  {transactions.slice(0, 4).map(tx => {
                     const isSender = tx.senderVpa === currentUser?.vpa;
                     return (
-                       <div key={tx.id} className="flex justify-between items-center p-3 hover:bg-secondary/50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-border">
+                       <div key={(tx as any)._id || tx.id} className="flex justify-between items-center p-3 hover:bg-secondary/50 rounded-xl transition-colors group cursor-default border border-transparent hover:border-border">
                           <div className="flex items-center gap-4 min-w-0">
                              <div className={`p-2.5 rounded-full shrink-0 ${isSender ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-500'}`}>
                                 {isSender ? <Send size={18} className="transform -rotate-45" /> : <ArrowDownLeft size={18} />}
@@ -435,6 +485,7 @@ function App() {
                      {copied ? <Check size={14} className="text-emerald-300"/> : <Copy size={14} />}
                    </button>
                  </div>
+                 <p className="text-emerald-100/60 font-mono text-xs mt-1">{currentUser?.email}</p>
                </div>
              </div>
            </div>
@@ -474,6 +525,22 @@ function App() {
                  <div className={`w-12 h-7 rounded-full relative transition-colors ${isSyncEnabled ? 'bg-primary' : 'bg-muted'}`}>
                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${isSyncEnabled ? 'translate-x-6' : 'translate-x-1'}`}></div>
                  </div>
+               </div>
+
+               <div 
+                 onClick={() => setShowResetPinModal(true)}
+                 className="flex items-center justify-between p-4 hover:bg-secondary/50 cursor-pointer transition-colors"
+               >
+                 <div className="flex items-center gap-4">
+                   <div className="bg-orange-500/10 p-3 rounded-xl text-orange-500">
+                     <Lock size={20} />
+                   </div>
+                   <div>
+                     <p className="font-bold">Reset UPI PIN</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">Change your 4-digit transaction PIN</p>
+                   </div>
+                 </div>
+                 <ArrowRight size={16} className="text-muted-foreground" />
                </div>
 
              </div>
@@ -541,6 +608,72 @@ function App() {
            </div>
          </div>
        )}
+
+        {/* Reset UPI PIN Modal */}
+        {showResetPinModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-card border border-border w-full max-w-sm rounded-3xl shadow-2xl p-6 relative animate-in zoom-in-95 duration-200">
+              <button 
+                onClick={() => { setShowResetPinModal(false); setResetPinStep('SEND_OTP'); setResetPinData({otp: '', newPin: ''}); }}
+                className="absolute top-4 right-4 p-2 bg-secondary rounded-full text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="mb-6">
+                <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mb-4">
+                  <Lock size={24} />
+                </div>
+                <h3 className="text-2xl font-bold">Reset UPI PIN</h3>
+                <p className="text-muted-foreground text-sm">
+                  {resetPinStep === 'SEND_OTP' 
+                    ? "We'll send a verification code to your email to reset your offline transaction PIN."
+                    : "Enter the code sent to your email and your new 4-digit PIN."}
+                </p>
+              </div>
+
+              {resetPinStep === 'SEND_OTP' ? (
+                <button 
+                  onClick={initiatePinReset}
+                  disabled={isResettingPin}
+                  className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-black text-lg hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                >
+                  {isResettingPin ? <Activity className="animate-spin" size={20}/> : 'Send OTP via Email'}
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider ml-1">Verification Code (OTP)</label>
+                    <input
+                      type="text"
+                      value={resetPinData.otp}
+                      onChange={(e) => setResetPinData({...resetPinData, otp: e.target.value.replace(/\D/g, '').substring(0, 6)})}
+                      className="w-full bg-secondary/50 border border-border rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all mt-1"
+                      placeholder="123456"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider ml-1">New 4-Digit PIN</label>
+                    <input
+                      type="password"
+                      value={resetPinData.newPin}
+                      onChange={(e) => setResetPinData({...resetPinData, newPin: e.target.value.replace(/\D/g, '').substring(0, 4)})}
+                      className="w-full bg-secondary/50 border border-border rounded-xl py-3 px-4 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all mt-1 tracking-widest font-mono text-lg"
+                      placeholder="••••"
+                    />
+                  </div>
+                  <button 
+                    onClick={confirmPinReset}
+                    disabled={isResettingPin || !resetPinData.otp || resetPinData.newPin.length !== 4}
+                    className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-black text-lg hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                  >
+                    {isResettingPin ? <Activity className="animate-spin" size={20}/> : 'Confirm Reset'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
        {/* Toast Notification System */}
        <AnimatePresence>
