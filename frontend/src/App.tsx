@@ -269,18 +269,18 @@ function App() {
               <div className="flex-1 space-y-3">
                  {accounts.filter(a => a.vpa !== currentUser?.vpa).slice(0, 4).map(account => (
                     <div key={account.vpa} className="flex justify-between items-center p-3 bg-secondary/30 rounded-xl border border-border/50">
-                       <div className="flex items-center gap-3">
-                          <div className="bg-background p-2 rounded-lg border border-border">
+                       <div className="flex items-center gap-3 min-w-0">
+                          <div className="bg-background p-2 rounded-lg border border-border shrink-0">
                             <Smartphone size={16} className="text-muted-foreground" />
                           </div>
-                          <div>
-                            <span className="text-sm font-medium block">{account.holderName}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">{account.vpa}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium block truncate">{account.holderName}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono truncate block">{account.vpa}</span>
                           </div>
                        </div>
-                       <div className="flex items-center gap-2 text-xs">
+                       <div className="flex items-center gap-2 text-xs shrink-0 ml-2">
                           <span className="text-emerald-500 flex items-center bg-emerald-500/10 px-2 py-1 rounded-md font-medium border border-emerald-500/20">
-                            <Wifi size={12} className="mr-1.5"/> Node Active
+                            <Wifi size={12} className="mr-1.5 shrink-0"/> Node Active
                           </span>
                        </div>
                     </div>
