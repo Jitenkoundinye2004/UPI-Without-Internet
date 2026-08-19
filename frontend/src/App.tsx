@@ -34,7 +34,26 @@ function App() {
   useEffect(() => {
     // 1. Fetch user on mount
     const savedUser = localStorage.getItem('meshpay_user');
-    if (savedUser) setAuthUser(JSON.parse(savedUser));
+    if (savedUser) {
+      setAuthUser(JSON.parse(savedUser));
+    } else if (token) {
+      // Fallback: If token exists but user data is missing, fetch from server
+      fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.vpa) {
+          setAuthUser(data);
+          localStorage.setItem('meshpay_user', JSON.stringify(data));
+        } else {
+          // Invalid token or user deleted
+          setToken(null);
+          localStorage.removeItem('meshpay_token');
+        }
+      })
+      .catch(console.error);
+    }
 
     // 2. Setup Network Listeners for Auto-Sync
     const handleOnline = () => setIsOnline(true);
@@ -151,7 +170,7 @@ function App() {
   };
 
   // The currently logged in user
-  const currentUser = authUser || accounts.find(a => a.vpa === 'jiten@demo') || accounts[0];
+  const currentUser = authUser;
 
   const displayBalance = useMemo(() => {
     try {
