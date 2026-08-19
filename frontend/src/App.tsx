@@ -170,7 +170,9 @@ function App() {
   };
 
   // The currently logged in user
-  const currentUser = authUser;
+  // We merge authUser with live polling data from accounts so balances update in real-time when receiving money
+  const liveAccount = accounts.find(a => a.vpa === authUser?.vpa);
+  const currentUser = liveAccount && authUser ? { ...authUser, ...liveAccount } : authUser;
 
   const displayBalance = useMemo(() => {
     try {
